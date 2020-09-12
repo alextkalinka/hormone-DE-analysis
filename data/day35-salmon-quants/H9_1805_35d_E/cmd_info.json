@@ -1,0 +1,13 @@
+{
+    "salmon_version": "0.14.1",
+    "index": "data/hg38_transcriptome_decoys",
+    "libType": "A",
+    "unmatedReads": "/beegfs3/ikelava/H9_35d_concat/H9_1805_35d_E_concatenated.fq.gz",
+    "validateMappings": [],
+    "fldMean": "300",
+    "fldSD": "50",
+    "seqBias": [],
+    "gcBias": [],
+    "output": "salmon_quants/H9_1805_35d_E",
+    "auxDir": "aux_info"
+}
