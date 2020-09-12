@@ -27,7 +27,7 @@ suppressMessages(library(ggplot2))
 
 
 if(packageVersion("delboy") != "0.0.1")
-  stop("this analysis is designed to work with delbov v0.0.1")
+  stop("this analysis is designed to work with delboy v0.0.1")
 
 # Batch-corrected data pre-computed (non-parametric batch correction in sva::ComBat is very slow).
 data.bcorr.day35 <- readRDS("../data/day35-R-objects/bcorr.non-param--day35.rds")
@@ -106,6 +106,6 @@ plot(dboy.day35, type = "fc_expr_FN")
 
 # Appendix
 
-
+## Generating batch-corrected data from `salmon` quants
 
 
