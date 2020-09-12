@@ -1,0 +1,111 @@
+---
+title: "DiffExp analysis for Kelava et al. 2020"
+author: "Alex Kalinka"
+date: "`r format(Sys.time(), '%d %B, %Y')`"
+output:
+  html_document:
+    code_folding: hide
+    keep_md: yes
+    toc: yes
+    depth: 3
+    highlight: tango
+    number_sections: yes
+    theme: spacelab
+    toc_float:
+      collapsed: yes
+    df_print: paged
+---
+
+# Setup
+
+```{r}
+options(warn=-1)
+suppressMessages(library(delboy))
+suppressMessages(library(dplyr))
+suppressMessages(library(tidyr))
+suppressMessages(library(ggplot2))
+
+
+if(packageVersion("delboy") != "0.0.1")
+  stop("this analysis is designed to work with delbov v0.0.1")
+
+# Batch-corrected data pre-computed (non-parametric batch correction in sva::ComBat is very slow).
+data.bcorr.day35 <- readRDS("../data/day35-R-objects/bcorr.non-param--day35.rds")
+data.bcorr.day35_hormone <- readRDS("../data/day35-R-objects/bcorr.non-param--day35-hormone.rds")
+
+```
+
+# Overview
+
+We start from batch-corrected data as this step is time-consuming. See the Appendix for the steps taken to produce the batch-corrected data from the `salmon` quants.
+
+# Differential Expression analysis
+
+Low-expression filter is 0 because a filter of 40 was already applied.
+
+```{r}
+suppressMessages(
+  suppressWarnings(
+    dboy.day35 <- delboy::run_delboy(data.bcorr.day35,
+                                 colnames(data.bcorr.day35)[c(4,8,12)],
+                                 colnames(data.bcorr.day35)[c(2:3,5,7,9,11)],
+                                 NULL,
+                                 0,
+                                 "gene_id",
+                                 bcorr_data_validation = data.bcorr.day35_hormone)
+  )
+)
+
+```
+
+## Visualizing hits
+
+```{r}
+data.rel <- data.bcorr.day35 %>%
+  select(-ends_with("E")) %>%
+  gather(key = "sample", value = "abundance", -gene_id) %>%
+  rowwise() %>%
+  mutate(Treatment = tail(unlist(strsplit(sample,"_")),1),
+         Treatment = ifelse(Treatment == "DHT","T",Treatment),
+         Treatment = ifelse(Treatment=="ctrl","Control","Testosterone/DHT"),
+         batch = paste("b",unlist(strsplit(sample,"_"))[2],sep="")) %>%
+  ungroup() %>%
+  group_by(gene_id) %>%
+  filter(sum(abundance) > 40 & abundance > 0) %>%
+  mutate(min_sb = (abundance-min(abundance)),
+         TPM_relative = min_sb/max(min_sb)) %>%
+  summarise(TPM_relative.Control = mean(TPM_relative[Treatment=="Control"]),
+            TPM_relative.Androgen = mean(TPM_relative[Treatment=="Testosterone/DHT"])) %>%
+  ungroup() %>%
+  mutate(Gene = case_when(gene_id %in% dboy.day35$elnet_results$genes.up ~ "Hit_Upregulated",
+                          gene_id %in% dboy.day35$elnet_results$genes.down ~ "Hit_Downregulated",
+                          TRUE ~ "Not called"))
+
+# Plot.
+data.rel %>%
+  ggplot(aes(TPM_relative.Control, TPM_relative.Androgen, color = Gene)) +
+  geom_bin2d() +
+  geom_point(data=data.rel %>% filter(Gene=="Hit_Upregulated"),
+             aes(TPM_relative.Control, TPM_relative.Androgen, color="Hit_Upregulated")) +
+  geom_point(data=data.rel %>% filter(Gene=="Hit_Downregulated"),
+             aes(TPM_relative.Control, TPM_relative.Androgen, color="Hit_Downregulated")) +
+  ggtitle("TPM (normalised within genes): Up- and down-regulated hits")
+
+```
+
+## Performance
+
+```{r}
+print(dboy.day35)
+
+plot(dboy.day35, type = "fc_expr")
+
+plot(dboy.day35, type = "fc_expr_FN")
+
+```
+
+# Appendix
+
+
+
+
