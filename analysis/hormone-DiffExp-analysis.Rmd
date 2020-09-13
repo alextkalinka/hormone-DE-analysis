@@ -18,8 +18,13 @@ output:
 
 # Setup
 
+The `delboy` R package lives here:
+
+https://github.com/alextkalinka/delboy
+
 ```{r}
 options(warn=-1)
+suppressMessages(library(knitr))
 suppressMessages(library(delboy))
 suppressMessages(library(dplyr))
 suppressMessages(library(tidyr))
@@ -61,6 +66,7 @@ suppressMessages(
 ## Visualizing hits
 
 ```{r}
+suppressMessages(
 data.rel <- data.bcorr.day35 %>%
   select(-ends_with("E")) %>%
   gather(key = "sample", value = "abundance", -gene_id) %>%
@@ -80,6 +86,7 @@ data.rel <- data.bcorr.day35 %>%
   mutate(Gene = case_when(gene_id %in% dboy.day35$elnet_results$genes.up ~ "Hit_Upregulated",
                           gene_id %in% dboy.day35$elnet_results$genes.down ~ "Hit_Downregulated",
                           TRUE ~ "Not called"))
+)
 
 # Plot.
 data.rel %>%
@@ -95,12 +102,21 @@ data.rel %>%
 
 ## Performance
 
+`delboy` has a 10-fold higher sensitivity than `DESeq2` (adjusted p-value < 0.1) and with a modest FDR of 4% (3 false positives).
+
 ```{r}
-print(dboy.day35)
+kable(dboy.day35$performance_stats_corr_FP)
 
 plot(dboy.day35, type = "fc_expr")
 
 plot(dboy.day35, type = "fc_expr_FN")
+
+```
+
+## Hit list
+
+```{r}
+kable(delboy::hits(dboy.day35))
 
 ```
 
