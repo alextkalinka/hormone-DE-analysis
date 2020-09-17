@@ -46,24 +46,27 @@ We start from batch-corrected data as this step is time-consuming. See the Appen
 
 # Differential Expression analysis
 
-Low-expression filter is 0 because a filter of 40 was already applied.
+The low-expression `filter_cutoff` is set to 0 because a filter of 40 was applied when the batch-correction was pre-computed.
 
 ```{r}
 suppressMessages(
   suppressWarnings(
-    dboy.day35 <- delboy::run_delboy(data.bcorr.day35,
-                                 colnames(data.bcorr.day35)[c(4,8,12)],
-                                 colnames(data.bcorr.day35)[c(2:3,5,7,9,11)],
-                                 NULL,
-                                 0,
-                                 "gene_id",
-                                 bcorr_data_validation = data.bcorr.day35_hormone)
+    dboy.day35 <- delboy::run_delboy(
+      data = data.bcorr.day35,
+      group_1 = colnames(data.bcorr.day35)[c(4,8,12)],
+      group_2 = colnames(data.bcorr.day35)[c(2:3,5,7,9,11)],
+      normalize = NULL,
+      filter_cutoff = 0,
+      gene_column = "gene_id",
+      bcorr_data_validation = data.bcorr.day35_hormone)
   )
 )
 
 ```
 
 ## Visualizing hits
+
+Below we visualize the relative expression of samples within genes to show that up- and down-regulated genes fall into opposite corners of the plot, as expected.
 
 ```{r}
 suppressMessages(
@@ -122,6 +125,87 @@ kable(delboy::hits(dboy.day35))
 
 # Appendix
 
-## Generating batch-corrected data from `salmon` quants
+To run the code in the following section, change the `eval=F` option in the chunk header to `eval=T`.
+
+## Batch correcting data from `salmon` quants
+
+Batch 502 and 802 E looked like large outliers in the original sample PCA and were excluded from downstream analyses. To explore the total set of data, use the following path for the `path_samples_file` argument in the `read_salmon_quants` function below:
+
+* "../data/day35-salmon-quants/samples.txt".
+
+```{r, eval=F}
+suppressMessages(library(tximport))
+suppressMessages(library(tximportData))
+suppressMessages(library(readr))
+suppressMessages(library(DESeq2))
+suppressMessages(library(sva))
+
+
+read_salmon_quants <- function(path_samples_file, filter_cutoff = 40){
+  # Tx2gene.
+  tx_dir <- system.file("extdata", package="tximportData")
+  tx2gene <- readr::read_csv(file.path(tx_dir, "tx2gene.gencode.v27.csv"))
+
+  # Read in salmon quants for day35 data.
+  path_quants <- "../data/day35-salmon-quants"
+  samples <- read.table(path_samples_file, header=T)
+
+  squant_files <- list.files(path_quants, recursive = T, full.names = T, pattern = "quant.sf")
+  names(squant_files) <- sapply(squant_files, function(x) 
+    gsub("^(.*)$", "\\1", unlist(strsplit(x,"/"))[4]))
+  squant_files <- squant_files[match(samples$run, names(squant_files))]
+  
+  # Load salmon quants.
+  txi <- tximport(squant_files, type="salmon", tx2gene=tx2gene)
+  dds <- DESeqDataSetFromTximport(txi, colData = samples, 
+                                  design = ~ batch + hormone)
+  dds <- dds[rowSums(counts(dds)) > filter_cutoff,]
+  var_st <- DESeq2::vst(dds, blind=FALSE)
+  
+  ret <- list(
+    samples = samples,
+    squant_files = squant_files,
+    txi = txi,
+    var_st = var_st,
+    dds = dds,
+    pca = plotPCA(var_st, intgroup=c("batch","hormone"), returnData=T)
+  )
+  return(ret)
+}
+
+# Prep data for batch correction by 'ComBat'.
+prep_combat <- function(data, thresh){
+  # 'thresh' usually set to 40.
+  genes <- rownames(data)
+  batch <- sapply(colnames(data), function(x) unlist(strsplit(x,"_"))[2])
+  names(batch) <- NULL
+  data <- data.frame(gene = genes, data) %>%
+    filter(rowSums(.[2:ncol(.)]) > thresh)
+  return(list(data = data, batch_names = batch))
+}
+
+quants <- read_salmon_quants("../data/day35-salmon-quants/samples-d_t_grouped.txt")
+
+# Sample PCA prior to batch correction.
+ggplot(quants$pca, aes(PC1, PC2, shape=hormone, color=batch)) + 
+  geom_point(size=3) +
+  ggtitle("Sample PCA: pre-batch-correction")
+
+# ComBat non-parametric Batch-correction.
+data.combat.day35 <- prep_combat(quants$txi$abundance, thresh=40)
+data.bcorr <- sva::ComBat(as.matrix(data.combat.day35$data[,2:ncol(data.combat.day35$data)]),
+                          data.combat.day35$batch_names, par.prior = F)
+
+as.data.frame(prcomp(t(data.bcorr))$x) %>%
+  mutate(sample = colnames(data.bcorr)[1:ncol(data.bcorr)]) %>%
+  rowwise() %>%
+  mutate(hormone = unlist(strsplit(sample,"_"))[4], batch = unlist(strsplit(sample,"_"))[2]) %>%
+  ungroup() %>%
+  ggplot(aes(PC1, PC2, shape = hormone, color = batch)) +
+  geom_point(size = 3) +
+  ggtitle("Sample PCA: post-batch-correction")
+
+```
+
 
 
