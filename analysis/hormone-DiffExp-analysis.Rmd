@@ -46,7 +46,7 @@ We start from batch-corrected data as this step is time-consuming. See the Appen
 
 # Differential Expression analysis
 
-The low-expression `filter_cutoff` is set to 0 because a filter of 40 was applied when the batch-correction was pre-computed.
+The low-expression `filter_cutoff` is set to 0 because a filter of 40 (average of 4 TPM/sample) was applied when the batch-correction was pre-computed.
 
 ```{r}
 suppressMessages(
@@ -110,22 +110,24 @@ data.rel %>%
 ```{r}
 kable(dboy.day35$performance_stats_corr_FP)
 
-plot(dboy.day35, type = "fc_expr")
+plot(dboy.day35, type = "fc_expr", ylim=c(0,1.5), xlim=c(0.5,4))
 
-plot(dboy.day35, type = "fc_expr_FN")
+plot(dboy.day35, type = "fc_expr_FN", ylim=c(0,1.5), xlim=c(0.5,4))
 
 ```
 
 ## Hit list
 
 ```{r}
-kable(delboy::hits(dboy.day35))
+db.hits <- delboy::hits(dboy.day35)
+cat(paste("Number of hits:",nrow(db.hits)),"\n",sum(db.hits$log2FoldChange > 0),"up-regulated\n",sum(db.hits$log2FoldChange < 0),"down-regulated\n\n")
+kable(db.hits)
 
 ```
 
 # Appendix
 
-To run the code in the following section, change the `eval=F` option in the chunk header to `eval=T`.
+To run the code in the following section, change the `eval=F` option in the code-chunk header to `eval=T`.
 
 ## Batch correcting data from `salmon` quants
 
