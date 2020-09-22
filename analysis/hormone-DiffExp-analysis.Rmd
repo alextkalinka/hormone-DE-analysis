@@ -55,7 +55,6 @@ suppressMessages(
       data = data.bcorr.day35,
       group_1 = colnames(data.bcorr.day35)[c(4,8,12)],
       group_2 = colnames(data.bcorr.day35)[c(2:3,5,7,9,11)],
-      normalize = NULL,
       filter_cutoff = 0,
       gene_column = "gene_id",
       bcorr_data_validation = data.bcorr.day35_hormone)
@@ -108,7 +107,7 @@ data.rel %>%
 `delboy` has a 10-fold higher sensitivity than `DESeq2` (adjusted p-value < 0.1) and with a modest FDR of 4% (3 false positives).
 
 ```{r}
-kable(dboy.day35$performance_stats_corr_FP)
+kable(delboy::get_performance_stats(dboy.day35))
 
 plot(dboy.day35, type = "fc_expr", ylim=c(0,1.5), xlim=c(0.5,4))
 
@@ -208,6 +207,4 @@ as.data.frame(prcomp(t(data.bcorr))$x) %>%
   ggtitle("Sample PCA: post-batch-correction")
 
 ```
-
-
 
